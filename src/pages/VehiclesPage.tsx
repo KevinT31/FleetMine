@@ -1,6 +1,6 @@
-﻿import { ArrowDownUp, Eye, ListFilter, RefreshCcw } from 'lucide-react';
+import { ArrowDownUp, ListFilter, RefreshCcw } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import { useOutletContext } from 'react-router-dom';
 import { PageHeader } from '../components/common/PageHeader';
 import { StatusBadge } from '../components/common/StatusBadge';
 import type { AppViewContext } from '../components/layout/AppLayout';
@@ -67,7 +67,7 @@ export function VehiclesPage() {
     <div className="page">
       <PageHeader
         title="Vehiculos"
-        description="Listado completo con filtros operativos, criticidad y acceso a fichas detalladas"
+        description="Listado completo con filtros operativos y criticidad"
         actions={
           <div className="header-actions-group">
             <span className={`source-badge source-${source}`}>{source.toUpperCase()}</span>
@@ -148,7 +148,6 @@ export function VehiclesPage() {
                 <th>Velocidad</th>
                 <th>Ultimo timestamp</th>
                 <th>Ubicacion</th>
-                <th>Accion</th>
               </tr>
             </thead>
             <tbody>
@@ -163,11 +162,6 @@ export function VehiclesPage() {
                   <td>{formatMetric(vehicle.speedKmh, 'km/h')}</td>
                   <td>{formatDateTime(vehicle.lastSeenTs)}</td>
                   <td>{vehicle.zone}</td>
-                  <td>
-                    <Link className="text-link" to={`/vehiculos/${vehicle.id}`}>
-                      <Eye size={14} /> Ver
-                    </Link>
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -177,4 +171,3 @@ export function VehiclesPage() {
     </div>
   );
 }
-

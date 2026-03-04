@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, type Alert } from '../services/api';
 
 type Source = 'aws';
+const DEFAULT_ALERTS_VEHICLE_ID = 'TRUCK-007';
 
 interface UseAlertsResult {
   alerts: Alert[];
@@ -24,12 +25,13 @@ export function useAlerts(vehicleId?: string, limit = 50): UseAlertsResult {
     const value = vehicleId.trim();
     return value.length > 0 ? value : undefined;
   }, [vehicleId]);
+  const vehicleIdForRequest = normalizedVehicleId ?? DEFAULT_ALERTS_VEHICLE_ID;
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await api.getRecentAlerts(normalizedVehicleId, limit);
+      const res = await api.getRecentAlerts(vehicleIdForRequest, limit);
       setAlerts(res.data ?? []);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Error cargando alertas';
@@ -38,7 +40,7 @@ export function useAlerts(vehicleId?: string, limit = 50): UseAlertsResult {
     } finally {
       setLoading(false);
     }
-  };
+  }, [limit, vehicleIdForRequest]);
 
   const ack = async (alertId: string) => {
     await api.ackAlert(alertId);
@@ -55,8 +57,14 @@ export function useAlerts(vehicleId?: string, limit = 50): UseAlertsResult {
 
   useEffect(() => {
     void refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [normalizedVehicleId, limit]);
+    const intervalId = window.setInterval(() => {
+      void refresh();
+    }, 15000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [refresh]);
 
   return { alerts, loading, error, source, refresh, ack, notifyCritical };
 }

@@ -1,10 +1,10 @@
-import { BellRing, ClipboardPlus, Filter, RefreshCcw, ShieldCheck, Wrench } from 'lucide-react';
+import { ClipboardPlus, Filter, RefreshCcw, Wrench } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '../components/common/PageHeader';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { TelemetryTrendChart } from '../components/charts/TelemetryTrendChart';
 import { useAlerts } from '../hooks/useAlerts';
-import { createIncident, getVehicleHistory, type Alert as ApiAlert } from '../services/api';
+import { createIncident, createWorkOrder, getVehicleHistory, type Alert as ApiAlert } from '../services/api';
 import type { Alert, AlertState, AlertType, Severity } from '../types';
 import { ALERT_TYPE_LABEL, formatDateTime } from '../utils/format';
 
@@ -12,9 +12,7 @@ const typeOptions: Array<AlertType | 'all'> = ['all', 'temp', 'pressure', 'vibra
 const severityOptions: Array<Severity | 'all'> = ['all', 'baja', 'media', 'alta', 'critica'];
 
 type UiAlert = Alert & {
-  ack: boolean;
   ackId: string;
-  canAck: boolean;
   siteId?: string;
 };
 
@@ -35,6 +33,68 @@ function toNumber(value: unknown, fallback = 0): number {
 
 function toNullableNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function pickNumber(source: Record<string, unknown>, keys: string[], fallback = 0): number {
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === 'string' && value.trim().length > 0) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+    if (
+      typeof value === 'object' &&
+      value !== null &&
+      'N' in value &&
+      typeof (value as { N?: unknown }).N === 'string'
+    ) {
+      const parsed = Number((value as { N: string }).N);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+  return fallback;
+}
+
+function pickString(source: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+    if (
+      typeof value === 'object' &&
+      value !== null &&
+      'S' in value &&
+      typeof (value as { S?: unknown }).S === 'string' &&
+      (value as { S: string }).S.trim().length > 0
+    ) {
+      return (value as { S: string }).S.trim();
+    }
+  }
+  return undefined;
+}
+
+function parseKmhFromMessage(message?: string): number | undefined {
+  if (!message) return undefined;
+  const match = message.match(/(-?\d+(?:\.\d+)?)\s*km\/h/i);
+  if (!match) return undefined;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function parseThresholdFromMessage(message?: string): number | undefined {
+  if (!message) return undefined;
+  const match = message.match(/(?:umbral|limite|threshold)[^\d-]*(-?\d+(?:\.\d+)?)/i);
+  if (!match) return undefined;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 function normalizeType(rawType: unknown): AlertType {
@@ -70,22 +130,28 @@ function normalizeState(rawState: unknown, ack: unknown): AlertState {
   return 'abierta';
 }
 
-function mapApiAlert(apiAlert: ApiAlert, index: number): UiAlert {
-  const id =
-    (typeof apiAlert.alertId === 'string' && apiAlert.alertId) ||
-    (typeof apiAlert.sk === 'string' && apiAlert.sk) ||
-    `ALERT-${index + 1}`;
-  const ackId = typeof apiAlert.alertId === 'string' && apiAlert.alertId ? apiAlert.alertId : id;
+function mapSeverityToWorkOrderPriority(severity: Severity): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
+  if (severity === 'critica') return 'CRITICAL';
+  if (severity === 'alta') return 'HIGH';
+  if (severity === 'baja') return 'LOW';
+  return 'MEDIUM';
+}
 
-  const ts = typeof apiAlert.ts === 'string' ? apiAlert.ts : new Date().toISOString();
-  const vehicleId = typeof apiAlert.vehicleId === 'string' ? apiAlert.vehicleId : 'N/A';
-  const type = normalizeType(apiAlert.type);
-  const severity = normalizeSeverity(apiAlert.severity);
-  const state = normalizeState(apiAlert.state, apiAlert.ack);
-  const zone = typeof apiAlert.siteId === 'string' ? apiAlert.siteId : 'Sin zona';
-  const siteId = typeof apiAlert.siteId === 'string' ? apiAlert.siteId : undefined;
-  const message = typeof apiAlert.message === 'string' && apiAlert.message ? apiAlert.message : 'Sin mensaje';
-  const ack = apiAlert.ack === true || state !== 'abierta';
+function mapApiAlert(apiAlert: ApiAlert, index: number): UiAlert {
+  const raw = apiAlert as Record<string, unknown>;
+  const id = pickString(raw, ['alertId', 'id', 'sk']) || `ALERT-${index + 1}`;
+  const ackId = pickString(raw, ['alertId', 'id', 'sk']) || id;
+
+  const ts = pickString(raw, ['ts', 'createdAt', 'timestamp', 'eventTs', 'occurredAt']) || new Date().toISOString();
+  const vehicleId = pickString(raw, ['vehicleId', 'unitId']) || 'N/A';
+  const type = normalizeType(raw.type);
+  const severity = normalizeSeverity(raw.severity);
+  const state = normalizeState(raw.state, raw.ack);
+  const zone = pickString(raw, ['siteId', 'site', 'zone']) || 'Sin zona';
+  const siteId = pickString(raw, ['siteId', 'site']);
+  const message = pickString(raw, ['message', 'detail', 'description']) || 'Sin mensaje';
+  const valueFromMessage = parseKmhFromMessage(message);
+  const thresholdFromMessage = parseThresholdFromMessage(message);
 
   return {
     id,
@@ -94,13 +160,19 @@ function mapApiAlert(apiAlert: ApiAlert, index: number): UiAlert {
     type,
     severity,
     state,
-    value: toNumber(apiAlert.value, 0),
-    threshold: toNumber(apiAlert.threshold, 0),
+    value: pickNumber(
+      raw,
+      ['value', 'metricValue', 'currentValue', 'observedValue', 'speedKmh', 'speed'],
+      valueFromMessage ?? 0
+    ),
+    threshold: pickNumber(
+      raw,
+      ['threshold', 'metricThreshold', 'thresholdValue', 'limit', 'speedLimitKmh', 'speedLimit'],
+      thresholdFromMessage ?? 0
+    ),
     message,
     zone,
-    ack,
     ackId,
-    canAck: !ack && Boolean(ackId),
     siteId,
   };
 }
@@ -113,16 +185,13 @@ export function AlertsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [creatingIncident, setCreatingIncident] = useState(false);
-  const [notifying, setNotifying] = useState(false);
+  const [creatingMaintenance, setCreatingMaintenance] = useState(false);
   const [contextSeries, setContextSeries] = useState<HistoryChartPoint[]>([]);
   const [contextLoading, setContextLoading] = useState(false);
   const [contextError, setContextError] = useState<string | null>(null);
 
   const alertsVehicleScope = selectedVehicle === 'all' ? undefined : selectedVehicle;
-  const { alerts: apiAlerts, loading, error, source, refresh, ack, notifyCritical } = useAlerts(
-    alertsVehicleScope,
-    100
-  );
+  const { alerts: apiAlerts, loading, error, source, refresh } = useAlerts(alertsVehicleScope, 100);
 
   const alerts = useMemo<UiAlert[]>(() => apiAlerts.map((alert, index) => mapApiAlert(alert, index)), [apiAlerts]);
 
@@ -144,8 +213,8 @@ export function AlertsPage() {
 
   const selectedAlert: UiAlert | null = filtered.find((alert) => alert.id === selectedAlertId) || filtered[0] || null;
 
-  const pendingCriticalAlerts = useMemo(
-    () => filtered.filter((alert) => alert.severity === 'critica' && alert.state === 'abierta'),
+  const openCriticalCount = useMemo(
+    () => filtered.filter((alert) => alert.severity === 'critica' && alert.state === 'abierta').length,
     [filtered]
   );
 
@@ -196,53 +265,6 @@ export function AlertsPage() {
     };
   }, [selectedAlert]);
 
-  const handleAck = (alertId: string) => {
-    setActionError(null);
-    setActionSuccess(null);
-    void ack(alertId).catch((err) => {
-      const message = err instanceof Error ? err.message : 'Error reconociendo alerta';
-      setActionError(message);
-    });
-  };
-
-  const handleNotifySingle = (alertId: string) => {
-    setActionError(null);
-    setActionSuccess(null);
-    void notifyCritical(alertId)
-      .then(() => {
-        setActionSuccess(`Notificacion SNS enviada para alerta ${alertId}`);
-      })
-      .catch((err) => {
-        const message = err instanceof Error ? err.message : 'No se pudo enviar notificacion SNS';
-        setActionError(message);
-      });
-  };
-
-  const handleNotifyCriticalAll = async () => {
-    if (pendingCriticalAlerts.length === 0) {
-      setActionSuccess('No hay alertas criticas abiertas para notificar');
-      return;
-    }
-
-    setNotifying(true);
-    setActionError(null);
-    setActionSuccess(null);
-    try {
-      const results = await Promise.allSettled(
-        pendingCriticalAlerts.map((alert) => notifyCritical(alert.ackId))
-      );
-      const sent = results.filter((result) => result.status === 'fulfilled').length;
-      const failed = results.length - sent;
-      if (failed > 0) {
-        setActionError(`SNS envio ${sent} notificaciones y fallo en ${failed}`);
-      } else {
-        setActionSuccess(`SNS envio ${sent} notificaciones criticas`);
-      }
-    } finally {
-      setNotifying(false);
-    }
-  };
-
   const handleCreateIncident = async (alert: UiAlert) => {
     try {
       setCreatingIncident(true);
@@ -268,24 +290,48 @@ export function AlertsPage() {
     }
   };
 
+  const handleCreateMaintenance = async (alert: UiAlert) => {
+    try {
+      if (!alert.vehicleId || alert.vehicleId === 'N/A') {
+        throw new Error('La alerta no tiene un vehicleId valido');
+      }
+
+      setCreatingMaintenance(true);
+      setActionError(null);
+      setActionSuccess(null);
+
+      const payload = {
+        vehicleId: alert.vehicleId,
+        title: `Mantenimiento por alerta ${ALERT_TYPE_LABEL[alert.type]}`,
+        description: `${alert.message} (alerta ${alert.id})`,
+        priority: mapSeverityToWorkOrderPriority(alert.severity),
+        type: alert.type.toUpperCase(),
+        source: 'ALERT',
+      };
+
+      const created = await createWorkOrder(payload);
+      const workOrderId =
+        (typeof created.workOrderId === 'string' && created.workOrderId) ||
+        (typeof created.id === 'string' && created.id) ||
+        'N/A';
+      setActionSuccess(`Orden de trabajo creada: ${workOrderId}`);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'No se pudo crear orden de trabajo');
+    } finally {
+      setCreatingMaintenance(false);
+    }
+  };
+
   return (
     <div className="page">
       <PageHeader
         title="Centro de Alertas"
-        description="Bandeja operativa con notificacion inmediata de alertas criticas a supervisores y operadores"
+        description="Bandeja operativa para seguimiento de alertas y acciones correctivas"
         actions={
           <div className="header-actions-group">
             <span className={`source-badge source-${source}`}>{source.toUpperCase()}</span>
             <button type="button" className="ghost-button" onClick={() => void refresh()} disabled={loading}>
               <RefreshCcw size={14} /> {loading ? 'Cargando...' : 'Refrescar'}
-            </button>
-            <button
-              type="button"
-              className="solid-button"
-              onClick={() => void handleNotifyCriticalAll()}
-              disabled={notifying}
-            >
-              <BellRing size={14} /> {notifying ? 'Enviando SNS...' : 'Notificar criticas SNS'}
             </button>
           </div>
         }
@@ -334,7 +380,7 @@ export function AlertsPage() {
           </label>
         </div>
 
-        <p className="muted">Alertas criticas abiertas: {pendingCriticalAlerts.length}</p>
+        <p className="muted">Alertas criticas abiertas: {openCriticalCount}</p>
 
         <div className="table-wrap">
           <table>
@@ -343,54 +389,25 @@ export function AlertsPage() {
                 <th>Fecha/Hora</th>
                 <th>Vehiculo</th>
                 <th>Tipo</th>
-                <th>Valor / Umbral</th>
                 <th>Severidad</th>
-                <th>Estado</th>
-                <th>Acciones</th>
+                <th>Valor / Umbral</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((alert) => (
-                <tr key={alert.id}>
+                <tr
+                  key={alert.id}
+                  className={selectedAlert?.id === alert.id ? 'row-selected alert-row-clickable' : 'alert-row-clickable'}
+                  onClick={() => setSelectedAlertId(alert.id)}
+                >
                   <td>{formatDateTime(alert.ts)}</td>
                   <td>{alert.vehicleId}</td>
                   <td>{ALERT_TYPE_LABEL[alert.type]}</td>
                   <td>
-                    {alert.value} / {alert.threshold}
-                  </td>
-                  <td>
                     <StatusBadge severity={alert.severity} />
                   </td>
                   <td>
-                    <StatusBadge alertState={alert.state} />
-                  </td>
-                  <td>
-                    <div className="table-actions">
-                      <button type="button" className="ghost-button" onClick={() => setSelectedAlertId(alert.id)}>
-                        Ver detalle
-                      </button>
-                      {alert.canAck ? (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={() => handleAck(alert.ackId)}
-                          disabled={loading}
-                        >
-                          <ShieldCheck size={14} /> Reconocer
-                        </button>
-                      ) : (
-                        <span className="muted">Reconocida</span>
-                      )}
-                      {alert.severity === 'critica' ? (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={() => handleNotifySingle(alert.ackId)}
-                        >
-                          <BellRing size={14} /> Notificar
-                        </button>
-                      ) : null}
-                    </div>
+                    {alert.value} / {alert.threshold}
                   </td>
                 </tr>
               ))}
@@ -401,45 +418,50 @@ export function AlertsPage() {
 
       {selectedAlert && (
         <section className="panel alert-detail-grid">
-          <article>
-            <h3>Detalle de alerta {selectedAlert.id}</h3>
-            <ul className="simple-list">
-              <li>
+          <article className="alert-detail-panel">
+            <h3>Detalle de alerta seleccionada</h3>
+            <div className="alert-detail-meta">
+              <article className="alert-detail-item">
                 <span>Vehiculo</span>
                 <strong>{selectedAlert.vehicleId}</strong>
-              </li>
-              <li>
-                <span>Tipo</span>
-                <strong>{ALERT_TYPE_LABEL[selectedAlert.type]}</strong>
-              </li>
-              <li>
+              </article>
+              <article className="alert-detail-item">
                 <span>Ubicacion</span>
                 <strong>{selectedAlert.zone}</strong>
-              </li>
-              <li>
-                <span>Mensaje</span>
-                <strong>{selectedAlert.message}</strong>
-              </li>
-              <li>
-                <span>Estado</span>
-                <StatusBadge alertState={selectedAlert.state} />
-              </li>
-            </ul>
-            <div className="focus-actions">
+              </article>
+              <article className="alert-detail-item">
+                <span>Tipo</span>
+                <strong>{ALERT_TYPE_LABEL[selectedAlert.type]}</strong>
+              </article>
+              <article className="alert-detail-item">
+                <span>Severidad</span>
+                <StatusBadge severity={selectedAlert.severity} />
+              </article>
+            </div>
+            <div className="alert-detail-message">
+              <span>Mensaje</span>
+              <p>{selectedAlert.message}</p>
+            </div>
+            <div className="alert-create-actions">
               <button
                 type="button"
-                className="solid-button"
+                className="solid-button alert-create-button"
                 onClick={() => void handleCreateIncident(selectedAlert)}
-                disabled={creatingIncident}
+                disabled={creatingIncident || creatingMaintenance}
               >
-                <ClipboardPlus size={14} /> Crear incidente
+                <ClipboardPlus size={14} /> {creatingIncident ? 'Creando incidente...' : 'Crear incidente'}
               </button>
-              <button type="button" className="ghost-button">
-                <Wrench size={14} /> Crear mantenimiento
+              <button
+                type="button"
+                className="ghost-button alert-create-button"
+                onClick={() => void handleCreateMaintenance(selectedAlert)}
+                disabled={creatingIncident || creatingMaintenance}
+              >
+                <Wrench size={14} /> {creatingMaintenance ? 'Creando mantenimiento...' : 'Crear mantenimiento'}
               </button>
             </div>
           </article>
-          <article>
+          <article className="alert-context-panel">
             <h3>Contexto 10 min antes/despues (historial real)</h3>
             {contextError ? <p className="muted">{contextError}</p> : null}
             <div style={{ height: 260, minHeight: 260, width: '100%' }}>

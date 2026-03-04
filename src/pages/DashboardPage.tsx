@@ -11,7 +11,7 @@
   Wrench,
 } from 'lucide-react';
 import { type ReactNode, useMemo, useState } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import { useOutletContext } from 'react-router-dom';
 import { KpiCard } from '../components/common/KpiCard';
 import { PageHeader } from '../components/common/PageHeader';
 import { PanelTitle } from '../components/common/PanelTitle';
@@ -81,8 +81,66 @@ function normalizeState(rawState: unknown, ack: unknown): AlertState {
   return 'abierta';
 }
 
-function toNumber(value: unknown, fallback = 0): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+function pickNumber(source: Record<string, unknown>, keys: string[], fallback = 0): number {
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === 'string' && value.trim().length > 0) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+    if (
+      typeof value === 'object' &&
+      value !== null &&
+      'N' in value &&
+      typeof (value as { N?: unknown }).N === 'string'
+    ) {
+      const parsed = Number((value as { N: string }).N);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+  return fallback;
+}
+
+function pickString(source: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+    if (
+      typeof value === 'object' &&
+      value !== null &&
+      'S' in value &&
+      typeof (value as { S?: unknown }).S === 'string' &&
+      (value as { S: string }).S.trim().length > 0
+    ) {
+      return (value as { S: string }).S.trim();
+    }
+  }
+  return undefined;
+}
+
+function parseKmhFromMessage(message?: string): number | undefined {
+  if (!message) return undefined;
+  const match = message.match(/(-?\d+(?:\.\d+)?)\s*km\/h/i);
+  if (!match) return undefined;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function parseThresholdFromMessage(message?: string): number | undefined {
+  if (!message) return undefined;
+  const match = message.match(/(?:umbral|limite|threshold)[^\d-]*(-?\d+(?:\.\d+)?)/i);
+  if (!match) return undefined;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 export function DashboardPage() {
@@ -105,16 +163,32 @@ export function DashboardPage() {
       ? selectedVehicleId
       : filteredVehicles[0]?.id;
 
+  const liveVehicles = useMemo(
+    () =>
+      [...filteredVehicles].sort((a, b) => {
+        const timeA = new Date(a.lastSeenTs).getTime();
+        const timeB = new Date(b.lastSeenTs).getTime();
+        const safeA = Number.isFinite(timeA) ? timeA : 0;
+        const safeB = Number.isFinite(timeB) ? timeB : 0;
+        return safeB - safeA;
+      }),
+    [filteredVehicles]
+  );
+
   const filteredAlerts = useMemo(
     () => {
       const normalized: DashboardAlert[] = apiAlerts
         .map((alert, index) => {
+          const raw = alert as Record<string, unknown>;
           const id =
-            (typeof alert.alertId === 'string' && alert.alertId) ||
-            (typeof alert.sk === 'string' && alert.sk) ||
+            pickString(raw, ['alertId', 'id', 'sk']) ||
             `ALERT-${index + 1}`;
-          const ts = typeof alert.ts === 'string' ? alert.ts : new Date().toISOString();
-          const vehicleId = typeof alert.vehicleId === 'string' ? alert.vehicleId : 'N/A';
+          const ts = pickString(raw, ['ts', 'createdAt', 'timestamp', 'eventTs', 'occurredAt']) || new Date().toISOString();
+          const vehicleId = pickString(raw, ['vehicleId', 'unitId']) || 'N/A';
+          const message = pickString(raw, ['message', 'detail', 'description']);
+          const valueFromMessage = parseKmhFromMessage(message);
+          const thresholdFromMessage = parseThresholdFromMessage(message);
+
           return {
             id,
             ts,
@@ -122,8 +196,16 @@ export function DashboardPage() {
             type: normalizeType(alert.type),
             severity: normalizeSeverity(alert.severity),
             state: normalizeState(alert.state, alert.ack),
-            value: toNumber(alert.value, 0),
-            threshold: toNumber(alert.threshold, 0),
+            value: pickNumber(
+              raw,
+              ['value', 'metricValue', 'currentValue', 'observedValue', 'speedKmh', 'speed'],
+              valueFromMessage ?? 0
+            ),
+            threshold: pickNumber(
+              raw,
+              ['threshold', 'metricThreshold', 'thresholdValue', 'limit', 'speedLimitKmh', 'speedLimit'],
+              thresholdFromMessage ?? 0
+            ),
           };
         })
         .filter((alert) => matchesSearch(search, [alert.vehicleId, alert.id]))
@@ -162,8 +244,8 @@ export function DashboardPage() {
   return (
     <div className="page">
       <PageHeader
-        title="Visualización de Operacion"
-        description={`Vista general de la mina ${mine} · Rango ${timeRange}`}
+        title="VisualizaciÃ³n de Operacion"
+        description={`Vista general de la mina ${mine} Â· Rango ${timeRange}`}
         actions={
           <div className="header-actions-group">
             <span className={`source-badge source-${source}`}>{source.toUpperCase()}</span>
@@ -292,15 +374,11 @@ export function DashboardPage() {
                   <th>Tipo</th>
                   <th>Estado</th>
                   <th>Velocidad</th>
-                  <th>Temp</th>
-                  <th>Presion</th>
-                  <th>Vibracion</th>
                   <th>Ultimo dato</th>
-                  <th />
                 </tr>
               </thead>
               <tbody>
-                {filteredVehicles.slice(0, 10).map((vehicle) => (
+                {liveVehicles.slice(0, 10).map((vehicle) => (
                   <tr key={vehicle.id}>
                     <td>{vehicle.id}</td>
                     <td>{vehicle.typeLabel}</td>
@@ -308,15 +386,7 @@ export function DashboardPage() {
                       <StatusBadge status={vehicle.status} />
                     </td>
                     <td>{formatMetric(vehicle.speedKmh, 'km/h')}</td>
-                    <td>{formatMetric(vehicle.tempC, '°C')}</td>
-                    <td>{formatMetric(vehicle.pressureBar, 'bar')}</td>
-                    <td>{formatMetric(vehicle.vibrationMm_sRms, 'mm/s')}</td>
                     <td>{formatDateTime(vehicle.lastSeenTs)}</td>
-                    <td>
-                      <Link className="text-link" to={`/vehiculos/${vehicle.id}`}>
-                        Ver detalle
-                      </Link>
-                    </td>
                   </tr>
                 ))}
               </tbody>

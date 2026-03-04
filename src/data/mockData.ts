@@ -548,12 +548,7 @@ export const workOrders: WorkOrder[] = [
   },
 ];
 
-export const geofences: Geofence[] = [
-  { id: 'GF-1', name: 'Frente Oeste', x: 12, y: 18, width: 22, height: 18, color: '#f59f00' },
-  { id: 'GF-2', name: 'Botadero Norte', x: 48, y: 8, width: 24, height: 20, color: '#ffd166' },
-  { id: 'GF-3', name: 'Taller', x: 70, y: 58, width: 18, height: 24, color: '#6cc4ff' },
-  { id: 'GF-4', name: 'Ruta Principal', x: 34, y: 42, width: 30, height: 12, color: '#9fb2c8' },
-];
+export const geofences: Geofence[] = [];
 
 const typeBaseMap: Record<
   VehicleTypeKey,

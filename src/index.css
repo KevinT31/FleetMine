@@ -842,6 +842,78 @@ tbody tr:hover {
   gap: 0.4rem;
 }
 
+.alert-detail-panel {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.alert-detail-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.alert-detail-item {
+  border: 1px solid #32445a;
+  border-radius: 0.66rem;
+  background: #111a26;
+  padding: 0.52rem;
+  display: grid;
+  gap: 0.22rem;
+}
+
+.alert-detail-item span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.alert-detail-item strong {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1rem;
+}
+
+.alert-detail-message {
+  border: 1px solid #32445a;
+  border-radius: 0.66rem;
+  background: #111a26;
+  padding: 0.62rem;
+  display: grid;
+  gap: 0.28rem;
+}
+
+.alert-detail-message span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.alert-detail-message p {
+  margin: 0;
+  color: #e7effa;
+  line-height: 1.35;
+}
+
+.alert-create-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.alert-create-button {
+  min-width: 220px;
+  justify-content: center;
+  padding: 0.5rem 0.82rem;
+}
+
+.alert-context-panel {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.alert-row-clickable {
+  cursor: pointer;
+}
+
 .focus-separator {
   height: 1px;
   background: #304056;
@@ -1195,6 +1267,48 @@ tbody tr:hover {
   text-align: right;
 }
 
+.settings-section-subtitle {
+  margin: 0.35rem 0 0.65rem;
+}
+
+.settings-field-hint {
+  color: var(--muted);
+  font-size: 0.73rem;
+  line-height: 1.25;
+}
+
+.settings-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.settings-status-grid article {
+  border: 1px solid #33485f;
+  border-radius: 0.66rem;
+  background: #111a26;
+  padding: 0.52rem 0.58rem;
+  display: grid;
+  gap: 0.18rem;
+}
+
+.settings-status-grid span {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.settings-status-grid strong {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1.08rem;
+}
+
+.settings-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 input::placeholder {
   color: #8ca0b9;
 }
@@ -1292,5 +1406,17 @@ input::placeholder {
 
   .role-permission-item strong {
     text-align: left;
+  }
+
+  .settings-status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .alert-detail-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .alert-create-button {
+    min-width: 100%;
   }
 }

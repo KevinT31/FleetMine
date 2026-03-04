@@ -199,14 +199,17 @@ export async function getLatestVehicles(): Promise<Vehicle[]> {
 }
 
 export async function getRecentAlerts(
-  vehicleId?: string,
+  vehicleId: string,
   limit = 50
 ): Promise<{ data: Alert[]; count: number }> {
-  const params = new URLSearchParams();
-  params.set('limit', String(limit));
-  if (vehicleId) {
-    params.set('vehicleId', vehicleId);
+  const normalizedVehicleId = vehicleId.trim();
+  if (!normalizedVehicleId) {
+    throw new Error('vehicleId requerido');
   }
+
+  const params = new URLSearchParams();
+  params.set('vehicleId', normalizedVehicleId);
+  params.set('limit', String(limit));
 
   const path = `/alerts/recent?${params.toString()}`;
   const payload = await fetchWithAuth<unknown>(path);
