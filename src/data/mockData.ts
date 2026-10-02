@@ -18,14 +18,14 @@ const vehicleTypeOrder: VehicleTypeKey[] = ['truck', 'loader', 'tanker', 'grader
 
 export const mines = ['San Miguel', 'La Esperanza', 'Pampa Norte'];
 
-export const timeRanges = ['En vivo', '15 min', '1 h', '24 h', '7 dÃ­as', 'Personalizado'];
+export const timeRanges = ['En vivo', '15 min', '1 h', '24 h', '7 días', 'Personalizado'];
 
 export const vehicles: Vehicle[] = [
   {
     id: 'TRK-001',
     plate: 'MBQ-921',
     type: 'truck',
-    typeLabel: 'CamiÃ³n minero',
+    typeLabel: 'Camión minero',
     gatewayId: 'GW-009',
     status: 'critical',
     speedKmh: 18.7,
@@ -45,7 +45,7 @@ export const vehicles: Vehicle[] = [
     id: 'TRK-002',
     plate: 'MBQ-936',
     type: 'truck',
-    typeLabel: 'CamiÃ³n minero',
+    typeLabel: 'Camión minero',
     gatewayId: 'GW-010',
     status: 'warning',
     speedKmh: 22.3,
@@ -65,7 +65,7 @@ export const vehicles: Vehicle[] = [
     id: 'TRK-003',
     plate: 'MBQ-940',
     type: 'truck',
-    typeLabel: 'CamiÃ³n minero',
+    typeLabel: 'Camión minero',
     gatewayId: 'GW-011',
     status: 'normal',
     speedKmh: 26.2,
@@ -85,7 +85,7 @@ export const vehicles: Vehicle[] = [
     id: 'TRK-004',
     plate: 'MBQ-955',
     type: 'truck',
-    typeLabel: 'CamiÃ³n minero',
+    typeLabel: 'Camión minero',
     gatewayId: 'GW-012',
     status: 'offline',
     speedKmh: 0,
@@ -285,7 +285,7 @@ export const vehicles: Vehicle[] = [
     id: 'TRK-005',
     plate: 'MBQ-966',
     type: 'truck',
-    typeLabel: 'CamiÃ³n minero',
+    typeLabel: 'Camión minero',
     gatewayId: 'GW-013',
     status: 'normal',
     speedKmh: 24.6,
@@ -333,7 +333,7 @@ export const alerts: Alert[] = [
     state: 'abierta',
     value: 7.1,
     threshold: 6.3,
-    message: 'VibraciÃ³n RMS sobre lÃ­mite por 12 min',
+    message: 'Vibración RMS sobre límite por 12 min',
     zone: 'Botadero Norte',
   },
   {
@@ -345,7 +345,7 @@ export const alerts: Alert[] = [
     state: 'abierta',
     value: 88.9,
     threshold: 85,
-    message: 'Temperatura hidrÃ¡ulica elevada',
+    message: 'Temperatura hidráulica elevada',
     zone: 'Stockpile Sur',
   },
   {
@@ -357,7 +357,7 @@ export const alerts: Alert[] = [
     state: 'reconocida',
     value: 205.4,
     threshold: 198,
-    message: 'PresiÃ³n en tren de potencia fuera de banda',
+    message: 'Presión en tren de potencia fuera de banda',
     zone: 'Frente Oeste',
   },
   {
@@ -381,7 +381,7 @@ export const alerts: Alert[] = [
     state: 'reconocida',
     value: 117,
     threshold: 15,
-    message: 'Unidad sin telemetrÃ­a',
+    message: 'Unidad sin telemetría',
     zone: 'Taller',
   },
   {
@@ -417,7 +417,7 @@ export const alerts: Alert[] = [
     state: 'abierta',
     value: 6.2,
     threshold: 5.6,
-    message: 'PatrÃ³n anÃ³malo de vibraciÃ³n en cuchara',
+    message: 'Patrón anómalo de vibración en cuchara',
     zone: 'Frente Oeste',
   },
   {
@@ -429,7 +429,7 @@ export const alerts: Alert[] = [
     state: 'cerrada',
     value: 24,
     threshold: 20,
-    message: 'DesvÃ­o de ruta detectado',
+    message: 'Desvío de ruta detectado',
     zone: 'Botadero Norte',
   },
   {
@@ -450,12 +450,12 @@ export const incidents: Incident[] = [
   {
     id: 'INC-2001',
     ts: hoursAgo(1),
-    title: 'Posible daÃ±o de rodamiento',
+    title: 'Posible daño de rodamiento',
     vehicleId: 'TRK-001',
     severity: 'critica',
-    assignedTo: 'Turno MecÃ¡nico A',
+    assignedTo: 'Turno Mecánico A',
     status: 'en_atencion',
-    description: 'Alta vibraciÃ³n y tendencia tÃ©rmica ascendente por 5 dÃ­as.',
+    description: 'Alta vibración y tendencia térmica ascendente por 5 días.',
     evidenceCount: 3,
     relatedAlertIds: ['ALT-1001', 'ALT-1010'],
   },
@@ -467,19 +467,19 @@ export const incidents: Incident[] = [
     severity: 'media',
     assignedTo: 'Soporte IoT Mina',
     status: 'nuevo',
-    description: 'Sin heartbeat por mÃ¡s de 80 minutos.',
+    description: 'Sin heartbeat por más de 80 minutos.',
     evidenceCount: 1,
     relatedAlertIds: ['ALT-1004'],
   },
   {
     id: 'INC-2003',
     ts: hoursAgo(4),
-    title: 'AnomalÃ­a hidrÃ¡ulica cargador',
+    title: 'Anomalía hidráulica cargador',
     vehicleId: 'LDR-013',
     severity: 'alta',
-    assignedTo: 'Jefe HidrÃ¡ulico',
+    assignedTo: 'Jefe Hidráulico',
     status: 'en_atencion',
-    description: 'PresiÃ³n inestable y vibraciÃ³n alta en frente de carga.',
+    description: 'Presión inestable y vibración alta en frente de carga.',
     evidenceCount: 4,
     relatedAlertIds: ['ALT-1002'],
   },
@@ -491,7 +491,7 @@ export const incidents: Incident[] = [
     severity: 'baja',
     assignedTo: 'Supervisor Patio',
     status: 'resuelto',
-    description: 'Unidad de abastecimiento reingresÃ³ a ruta autorizada.',
+    description: 'Unidad de abastecimiento reingresó a ruta autorizada.',
     evidenceCount: 2,
     relatedAlertIds: ['ALT-1006'],
   },
@@ -507,8 +507,8 @@ export const workOrders: WorkOrder[] = [
     createdAt: hoursAgo(3),
     dueAt: hoursAgo(-18),
     origin: 'ia',
-    component: 'Rodamientos transmisiÃ³n',
-    notes: 'InspecciÃ³n y posible reemplazo en 48 h.',
+    component: 'Rodamientos transmisión',
+    notes: 'Inspección y posible reemplazo en 48 h.',
   },
   {
     id: 'OT-3002',
@@ -519,8 +519,8 @@ export const workOrders: WorkOrder[] = [
     createdAt: hoursAgo(9),
     dueAt: hoursAgo(-10),
     origin: 'ia',
-    component: 'Sistema hidrÃ¡ulico',
-    notes: 'CalibraciÃ³n de vÃ¡lvula y revisiÃ³n de bomba.',
+    component: 'Sistema hidráulico',
+    notes: 'Calibración de válvula y revisión de bomba.',
   },
   {
     id: 'OT-3003',
@@ -532,7 +532,7 @@ export const workOrders: WorkOrder[] = [
     dueAt: hoursAgo(-6),
     origin: 'alerta',
     component: 'Gateway vehicular',
-    notes: 'DiagnÃ³stico de conectividad y energÃ­a.',
+    notes: 'Diagnóstico de conectividad y energía.',
   },
   {
     id: 'OT-3004',
@@ -544,7 +544,7 @@ export const workOrders: WorkOrder[] = [
     dueAt: hoursAgo(-24),
     origin: 'manual',
     component: 'Tren de potencia',
-    notes: 'Cambio de filtros y lubricaciÃ³n.',
+    notes: 'Cambio de filtros y lubricación.',
   },
 ];
 
@@ -624,12 +624,12 @@ export const aiPredictionRanking = vehicles
     type: vehicle.typeLabel,
     healthIndex: vehicle.healthIndex,
     failureProb: vehicle.failureProb72h,
-    eta: vehicle.failureProb72h > 75 ? '24-48 h' : vehicle.failureProb72h > 55 ? '48-72 h' : '4-7 dÃ­as',
+    eta: vehicle.failureProb72h > 75 ? '24-48 h' : vehicle.failureProb72h > 55 ? '48-72 h' : '4-7 días',
     component:
       vehicle.type === 'truck'
-        ? 'TransmisiÃ³n'
+        ? 'Transmisión'
         : vehicle.type === 'loader'
-          ? 'Sistema hidrÃ¡ulico'
+          ? 'Sistema hidráulico'
           : vehicle.type === 'tanker'
             ? 'Bomba / PTO'
             : 'Tren de potencia',
